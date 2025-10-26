@@ -1,0 +1,228 @@
+-- Music Player (LocalScript)
+-- Place this script in StarterPlayer > StarterPlayerScripts
+-- The script will create its GUI in PlayerGui and create Sound objects from the playlist table below.
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ======= EDIT THIS PLAYLIST =======
+-- Put your SoundId (rbxassetid://...) and Name here.
+local playlist = {
+	{ Name = "Confess your love", SoundId = "rbxassetid://121702402016726" },
+	
+	-- Add more entries as needed
+}
+-- ===================================
+
+-- UI creation
+local function createGui()
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "MusicTab"
+	screenGui.ResetOnSpawn = false
+	screenGui.Parent = playerGui
+
+	local frame = Instance.new("Frame")
+	frame.Name = "MusicFrame"
+	frame.Size = UDim2.new(0, 320, 0, 120)
+	frame.Position = UDim2.new(0, 16, 0, 16)
+	frame.BackgroundTransparency = 0.12
+	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	frame.BorderSizePixel = 0
+	frame.Parent = screenGui
+	frame.ClipsDescendants = true
+
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, -16, 0, 24)
+	title.Position = UDim2.new(0, 8, 0, 6)
+	title.BackgroundTransparency = 1
+	title.Text = "Music Player"
+	title.TextSize = 18
+	title.Font = Enum.Font.GothamBold
+	title.TextColor3 = Color3.fromRGB(255,255,255)
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = frame
+
+	local songLabel = Instance.new("TextLabel")
+	songLabel.Name = "SongName"
+	songLabel.Size = UDim2.new(1, -16, 0, 44)
+	songLabel.Position = UDim2.new(0, 8, 0, 36)
+	songLabel.BackgroundTransparency = 1
+	songLabel.Text = "No Song"
+	songLabel.TextSize = 16
+	songLabel.Font = Enum.Font.Gotham
+	songLabel.TextColor3 = Color3.fromRGB(230,230,230)
+	songLabel.TextWrapped = true
+	songLabel.TextXAlignment = Enum.TextXAlignment.Left
+	songLabel.TextYAlignment = Enum.TextYAlignment.Top
+	songLabel.Parent = frame
+
+	-- Buttons: Prev, Play, Pause, Next
+	local btnSize = UDim2.new(0, 72, 0, 30)
+
+	local prevBtn = Instance.new("TextButton")
+	prevBtn.Name = "PrevButton"
+	prevBtn.Size = btnSize
+	prevBtn.Position = UDim2.new(0, 8, 1, -40)
+	prevBtn.Text = "Prev"
+	prevBtn.Font = Enum.Font.GothamSemibold
+	prevBtn.TextSize = 14
+	prevBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	prevBtn.BackgroundColor3 = Color3.fromRGB(110,110,110)
+	prevBtn.BorderSizePixel = 0
+	prevBtn.Parent = frame
+
+	local playBtn = Instance.new("TextButton")
+	playBtn.Name = "PlayButton"
+	playBtn.Size = btnSize
+	playBtn.Position = UDim2.new(0, 86, 1, -40)
+	playBtn.Text = "Play"
+	playBtn.Font = Enum.Font.GothamSemibold
+	playBtn.TextSize = 14
+	playBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	playBtn.BackgroundColor3 = Color3.fromRGB(40,180,99)
+	playBtn.BorderSizePixel = 0
+	playBtn.Parent = frame
+
+	local pauseBtn = Instance.new("TextButton")
+	pauseBtn.Name = "PauseButton"
+	pauseBtn.Size = btnSize
+	pauseBtn.Position = UDim2.new(0, 164, 1, -40)
+	pauseBtn.Text = "Pause"
+	pauseBtn.Font = Enum.Font.GothamSemibold
+	pauseBtn.TextSize = 14
+	pauseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	pauseBtn.BackgroundColor3 = Color3.fromRGB(220,60,60)
+	pauseBtn.BorderSizePixel = 0
+	pauseBtn.Parent = frame
+
+	local nextBtn = Instance.new("TextButton")
+	nextBtn.Name = "NextButton"
+	nextBtn.Size = btnSize
+	nextBtn.Position = UDim2.new(0, 242, 1, -40)
+	nextBtn.Text = "Next"
+	nextBtn.Font = Enum.Font.GothamSemibold
+	nextBtn.TextSize = 14
+	nextBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	nextBtn.BackgroundColor3 = Color3.fromRGB(110,110,110)
+	nextBtn.BorderSizePixel = 0
+	nextBtn.Parent = frame
+
+	-- Optional small info label
+	local info = Instance.new("TextLabel")
+	info.Name = "InfoLabel"
+	info.Size = UDim2.new(1, -16, 0, 14)
+	info.Position = UDim2.new(0, 8, 1, -18)
+	info.BackgroundTransparency = 1
+	info.Text = "Loop: ON  •  Local playback"
+	info.Font = Enum.Font.Gotham
+	info.TextSize = 12
+	info.TextColor3 = Color3.fromRGB(200,200,200)
+	info.TextXAlignment = Enum.TextXAlignment.Left
+	info.Parent = frame
+
+	return {
+		ScreenGui = screenGui,
+		Frame = frame,
+		SongLabel = songLabel,
+		PlayButton = playBtn,
+		PauseButton = pauseBtn,
+		PrevButton = prevBtn,
+		NextButton = nextBtn,
+		InfoLabel = info
+	}
+end
+
+-- Core logic: create Sounds from playlist table and manage playback (local to client)
+local ui = createGui()
+
+local sounds = {}        -- store original constructed Sound objects (not the clones)
+for i, entry in ipairs(playlist) do
+	if type(entry) == "table" and entry.SoundId and entry.Name then
+		local s = Instance.new("Sound")
+		s.Name = entry.Name
+		s.SoundId = entry.SoundId
+		-- do NOT parent to workspace or ReplicatedStorage; store in table and clone when play
+		sounds[#sounds + 1] = s
+	end
+end
+
+-- If playlist empty, create a silent placeholder
+if #sounds == 0 then
+	local placeholder = Instance.new("Sound")
+	placeholder.Name = "No Song"
+	placeholder.SoundId = ""
+	sounds[1] = placeholder
+end
+
+local currentIndex = 1
+local currentClone = nil
+
+local function updateLabel()
+	local name = sounds[currentIndex] and sounds[currentIndex].Name or "Unknown Song"
+	ui.SongLabel.Text = name
+end
+
+local function playCurrent()
+	if currentClone and currentClone.Parent then
+		-- already cloned; try play
+		if currentClone.SoundId and currentClone.SoundId ~= "" then
+			pcall(function() currentClone:Play() end)
+		end
+	else
+		-- clone from sounds[currentIndex] into ScreenGui for local playback
+		local src = sounds[currentIndex]
+		if not src then return end
+		local clone = src:Clone()
+		clone.Parent = ui.ScreenGui
+		clone.Name = "MusicPlayer_Sound"
+		clone.Looped = true -- loop this track
+		clone.RollOffMode = Enum.RollOffMode.Inverse
+		currentClone = clone
+		-- small wait to let asset stream (safe pcall)
+		spawn(function()
+			wait(0.2)
+			pcall(function()
+				if clone.SoundId and clone.SoundId ~= "" then
+					clone:Play()
+				end
+			end)
+		end)
+	end
+	updateLabel()
+end
+
+local function stopCurrent()
+	if currentClone and currentClone.Parent then
+		pcall(function() currentClone:Stop() end)
+		currentClone:Destroy()
+		currentClone = nil
+	end
+end
+
+local function pauseCurrent()
+	if currentClone and currentClone.Parent then
+		pcall(function() currentClone:Pause() end)
+	end
+end
+
+local function nextSong()
+	stopCurrent()
+	currentIndex = currentIndex + 1
+	if currentIndex > #sounds then currentIndex = 1 end
+	playCurrent()
+end
+
+local function prevSong()
+	stopCurrent()
+	currentIndex = currentIndex - 1
+	if currentIndex < 1 then currentIndex = #sounds end
+	playCurrent()
+end
+
+-- Hook up buttons
+ui.PlayButton.MouseButton1Click:Connect(function()
+	playCurrent()
+end)
+ui.PauseButton.MouseButton1Click:Connect(function()
